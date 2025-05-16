@@ -4,7 +4,7 @@ Q: Como hacer una GET request HTTP con Go
 
 A: 
 
-req, err := http.NewRequestWithContext(ctx, http.MethodGet, p.endpoint, nil)
+    req, err := http.NewRequestWithContext(ctx, http.MethodGet, p.endpoint, nil)
 	if err != nil {
 		return nil, err
 	}
