@@ -3,10 +3,8 @@ package handlers
 import (
 	"context"
 	"net/http"
-	"slices"
 
-	"educabot.com/bookshop/models"
-	"educabot.com/bookshop/providers"
+	"educabot.com/bookshop/services"
 	"github.com/gin-gonic/gin"
 )
 
@@ -14,15 +12,15 @@ type GetMetricsRequest struct {
 	Author string `form:"author"`
 }
 
-func NewGetMetrics(booksProvider providers.BooksProvider) GetMetrics {
-	return GetMetrics{booksProvider}
+type MetricsHandler struct {
+	metricsService services.MetricsService
 }
 
-type GetMetrics struct {
-	booksProvider providers.BooksProvider
+func NewMetricsHandler(metricsService services.MetricsService) MetricsHandler {
+	return MetricsHandler{metricsService}
 }
 
-func (h GetMetrics) Handle() gin.HandlerFunc {
+func (h MetricsHandler) Handle() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		var query GetMetricsRequest
 		err := ctx.ShouldBindQuery(&query)
@@ -31,44 +29,12 @@ func (h GetMetrics) Handle() gin.HandlerFunc {
 			return
 		}
 
-		books, err := h.booksProvider.GetBooks(context.Background())
+		metrics, err := h.metricsService.GetMetrics(context.Background(), query.Author)
 		if err != nil {
-			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "could not retrieve books"})
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to retrieve metrics"})
 			return
 		}
 
-		meanUnitsSold := meanUnitsSold(ctx, books)
-		cheapestBook := cheapestBook(ctx, books).Name
-		booksWrittenByAuthor := booksWrittenByAuthor(ctx, books, query.Author)
-
-		ctx.JSON(http.StatusOK, map[string]interface{}{
-			"mean_units_sold":         meanUnitsSold,
-			"cheapest_book":           cheapestBook,
-			"books_written_by_author": booksWrittenByAuthor,
-		})
+		ctx.JSON(http.StatusOK, metrics)
 	}
-}
-
-func meanUnitsSold(_ context.Context, books []models.Book) uint {
-	var sum uint
-	for _, book := range books {
-		sum += book.UnitsSold
-	}
-	return sum / uint(len(books))
-}
-
-func cheapestBook(_ context.Context, books []models.Book) models.Book {
-	return slices.MinFunc(books, func(a, b models.Book) int {
-		return int(a.Price - b.Price)
-	})
-}
-
-func booksWrittenByAuthor(_ context.Context, books []models.Book, author string) uint {
-	var count uint
-	for _, book := range books {
-		if book.Author == author {
-			count++
-		}
-	}
-	return count
 }
